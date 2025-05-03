@@ -73,6 +73,8 @@
 #include <cassert>
 #include <cstdint>
 #include <utility>
+#include <vector>
+#include <random>
 
 using namespace llvm;
 
@@ -401,53 +403,31 @@ MCRegister RAGreedy::tryAssign(const LiveInterval &VirtReg,
                                SmallVectorImpl<Register> &NewVRegs,
                                const SmallVirtRegSet &FixedRegisters) {
   MCRegister PhysReg;
-  for (auto I = Order.begin(), E = Order.end(); I != E && !PhysReg; ++I) {
+
+  // Initialize vector of registers
+  std::vector<MCRegister> AllRegisters;
+  for (auto I = Order.begin(), E = Order.end(); I != E; ++I) {
+      AllRegisters.push_back(*I);
+  }
+
+  // Initialize a random number engine
+  std::random_device rd;
+  std::mt19937 gen(rd());
+
+  // Shuffle the vector
+  std::shuffle(AllRegisters.begin(), AllRegisters.end(), gen);
+
+  // Create a new ArrayRef from the shuffled vector
+  ArrayRef<MCRegister> RandomOrder(AllRegisters);
+
+  for (auto I = RandomOrder.begin(), E = RandomOrder.end(); I != E && !PhysReg; ++I) {
     assert(*I);
     if (!Matrix->checkInterference(VirtReg, *I)) {
-      if (I.isHint())
-        return *I;
-      else
         PhysReg = *I;
     }
   }
-  if (!PhysReg.isValid())
-    return PhysReg;
-
-  // PhysReg is available, but there may be a better choice.
-
-  // If we missed a simple hint, try to cheaply evict interference from the
-  // preferred register.
-  if (Register Hint = MRI->getSimpleHint(VirtReg.reg()))
-    if (Order.isHint(Hint)) {
-      MCRegister PhysHint = Hint.asMCReg();
-      LLVM_DEBUG(dbgs() << "missed hint " << printReg(PhysHint, TRI) << '\n');
-
-      if (EvictAdvisor->canEvictHintInterference(VirtReg, PhysHint,
-                                                 FixedRegisters)) {
-        evictInterference(VirtReg, PhysHint, NewVRegs);
-        return PhysHint;
-      }
-
-      // We can also split the virtual register in cold blocks.
-      if (trySplitAroundHintReg(PhysHint, VirtReg, NewVRegs, Order))
-        return 0;
-
-      // Record the missed hint, we may be able to recover
-      // at the end if the surrounding allocation changed.
-      SetOfBrokenHints.insert(&VirtReg);
-    }
-
-  // Try to evict interference from a cheaper alternative.
-  uint8_t Cost = RegCosts[PhysReg];
-
-  // Most registers have 0 additional cost.
-  if (!Cost)
-    return PhysReg;
-
-  LLVM_DEBUG(dbgs() << printReg(PhysReg, TRI) << " is available at cost "
-                    << (unsigned)Cost << '\n');
-  MCRegister CheapReg = tryEvict(VirtReg, Order, NewVRegs, Cost, FixedRegisters);
-  return CheapReg ? CheapReg : PhysReg;
+  
+  return PhysReg;
 }
 
 //===----------------------------------------------------------------------===//
