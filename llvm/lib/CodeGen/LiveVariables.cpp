@@ -608,7 +608,7 @@ bool LiveVariables::runOnMachineFunction(MachineFunction &mf) {
   // LiveVariables to improve compilation time and eliminate bizarre pass
   // dependencies. Until then, we can't change much in -O0.
   if (!MRI->isSSA())
-    report_fatal_error("regalloc=... not currently supported with -O0");
+    printf("    - Option `regalloc` is not currently supported with -O0\\n");
 
   analyzePHINodes(mf);
 
