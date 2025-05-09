@@ -880,7 +880,7 @@ void RegAllocFast::allocVirtReg(MachineInstr &MI, LiveReg &LR, Register Hint0,
                     << " in class " << TRI->getRegClassName(&RC)
                     << " with hint " << printReg(Hint0, TRI) << '\n');
 
-if (FastyRandomizeRegisterAllocation) {
+if (FastRandomizeRegisterAllocation) {
     // Initialize vector of registers
     std::vector<MCPhysReg> AllRegisters;
     ArrayRef<MCPhysReg> Order = RegClassInfo.getOrder(&RC);
