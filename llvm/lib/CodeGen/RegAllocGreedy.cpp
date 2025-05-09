@@ -148,9 +148,9 @@ static cl::opt<unsigned> SplitThresholdForRegWithHint(
              "percentate"),
     cl::init(75), cl::Hidden);
 
-static llvm::cl::opt<bool> RandomizeRegisterAllocation(
-    "randomize-register-allocation",
-    llvm::cl::desc("Randomize the allocation of registers"),
+static llvm::cl::opt<bool> GreedyRandomizeRegisterAllocation(
+    "greedy-randomize-register-allocation",
+    llvm::cl::desc("Randomize the greedy allocation of registers"),
     llvm::cl::init(false));
 
 static RegisterRegAlloc greedyRegAlloc("greedy", "greedy register allocator",
@@ -409,7 +409,7 @@ MCRegister RAGreedy::tryAssign(const LiveInterval &VirtReg,
                                const SmallVirtRegSet &FixedRegisters) {
   MCRegister PhysReg;
 
-  if (RandomizeRegisterAllocation) {
+  if (GreedyRandomizeRegisterAllocation) {
     // Initialize vector of registers
     std::vector<MCRegister> AllRegisters;
     for (auto I = Order.begin(), E = Order.end(); I != E; ++I) {
