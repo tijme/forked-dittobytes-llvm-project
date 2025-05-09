@@ -44,6 +44,7 @@
 #include <cassert>
 #include <tuple>
 #include <vector>
+#include <random>
 
 using namespace llvm;
 
@@ -57,8 +58,16 @@ STATISTIC(NumCoalesced, "Number of copies coalesced");
 static cl::opt<bool> IgnoreMissingDefs("rafast-ignore-missing-defs",
                                        cl::Hidden);
 
+
+static llvm::cl::opt<bool> FastRandomizeRegisterAllocation(
+    "fast-randomize-register-allocation",
+    llvm::cl::desc("Randomize the fast allocation of registers"),
+    llvm::cl::init(false));
+
+
 static RegisterRegAlloc fastRegAlloc("fast", "fast register allocator",
                                      createFastRegisterAllocator);
+
 
 namespace {
 
@@ -870,6 +879,35 @@ void RegAllocFast::allocVirtReg(MachineInstr &MI, LiveReg &LR, Register Hint0,
   LLVM_DEBUG(dbgs() << "Search register for " << printReg(VirtReg)
                     << " in class " << TRI->getRegClassName(&RC)
                     << " with hint " << printReg(Hint0, TRI) << '\n');
+
+if (FastyRandomizeRegisterAllocation) {
+    // Initialize vector of registers
+    std::vector<MCPhysReg> AllRegisters;
+    ArrayRef<MCPhysReg> Order = RegClassInfo.getOrder(&RC);
+
+    for (auto I = Order.begin(), E = Order.end(); I != E; ++I) {
+        AllRegisters.push_back(*I);
+    }
+
+    // Initialize a random number engine
+    std::random_device rd;
+    std::mt19937 gen(rd());
+
+    // Shuffle the vector
+    std::shuffle(AllRegisters.begin(), AllRegisters.end(), gen);
+
+    // Create a new ArrayRef from the shuffled vector
+    ArrayRef<MCPhysReg> RandomOrder(AllRegisters);
+
+    for (auto I = RandomOrder.begin(), E = RandomOrder.end(); I != E; ++I) {
+      assert(*I);
+
+      if (isPhysRegFree(*I)) {
+        assignVirtToPhysReg(MI, LR, *I);
+        return;
+      }
+    }
+  }
 
   // Take hint when possible.
   if (Hint0.isPhysical() && MRI->isAllocatable(Hint0) && RC.contains(Hint0) &&
