@@ -902,7 +902,7 @@ void RegAllocFast::allocVirtReg(MachineInstr &MI, LiveReg &LR, Register Hint0,
       for (auto I = RandomOrder.begin(), E = RandomOrder.end(); I != E; ++I) {
         assert(*I);
   
-        if (isPhysRegFree(*I)) {
+        if (MRI->isAllocatable(*I) && RC.contains(*I) && !isRegUsedInInstr(*I, LookAtPhysRegUses) && isPhysRegFree(*I)) {
           assignVirtToPhysReg(MI, LR, *I);
           return;
         }
