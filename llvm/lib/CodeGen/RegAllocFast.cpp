@@ -880,35 +880,6 @@ void RegAllocFast::allocVirtReg(MachineInstr &MI, LiveReg &LR, Register Hint0,
                     << " in class " << TRI->getRegClassName(&RC)
                     << " with hint " << printReg(Hint0, TRI) << '\n');
 
-  if (FastRandomizeRegisterAllocation) {
-      // Initialize vector of registers
-      std::vector<MCPhysReg> AllRegisters;
-      ArrayRef<MCPhysReg> Order = RegClassInfo.getOrder(&RC);
-  
-      for (auto I = Order.begin(), E = Order.end(); I != E; ++I) {
-          AllRegisters.push_back(*I);
-      }
-  
-      // Initialize a random number engine
-      std::random_device rd;
-      std::mt19937 gen(rd());
-  
-      // Shuffle the vector
-      std::shuffle(AllRegisters.begin(), AllRegisters.end(), gen);
-  
-      // Create a new ArrayRef from the shuffled vector
-      ArrayRef<MCPhysReg> RandomOrder(AllRegisters);
-  
-      for (auto I = RandomOrder.begin(), E = RandomOrder.end(); I != E; ++I) {
-        assert(*I);
-  
-        if (MRI->isAllocatable(*I) && RC.contains(*I) && !isRegUsedInInstr(*I, LookAtPhysRegUses) && isPhysRegFree(*I)) {
-          assignVirtToPhysReg(MI, LR, *I);
-          return;
-        }
-      }
-    }
-
   // Take hint when possible.
   if (Hint0.isPhysical() && MRI->isAllocatable(Hint0) && RC.contains(Hint0) &&
       !isRegUsedInInstr(Hint0, LookAtPhysRegUses)) {
@@ -944,6 +915,35 @@ void RegAllocFast::allocVirtReg(MachineInstr &MI, LiveReg &LR, Register Hint0,
     Hint1 = Register();
   }
 
+   if (FastRandomizeRegisterAllocation) {
+      // Initialize vector of registers
+      std::vector<MCPhysReg> AllRegisters;
+      ArrayRef<MCPhysReg> Order = RegClassInfo.getOrder(&RC);
+  
+      for (auto I = Order.begin(), E = Order.end(); I != E; ++I) {
+          AllRegisters.push_back(*I);
+      }
+  
+      // Initialize a random number engine
+      std::random_device rd;
+      std::mt19937 gen(rd());
+  
+      // Shuffle the vector
+      std::shuffle(AllRegisters.begin(), AllRegisters.end(), gen);
+  
+      // Create a new ArrayRef from the shuffled vector
+      ArrayRef<MCPhysReg> RandomOrder(AllRegisters);
+  
+      for (auto I = RandomOrder.begin(), E = RandomOrder.end(); I != E; ++I) {
+        assert(*I);
+  
+        if (MRI->isAllocatable(*I) && RC.contains(*I) && !isRegUsedInInstr(*I, LookAtPhysRegUses) && isPhysRegFree(*I)) {
+          assignVirtToPhysReg(MI, LR, *I);
+          return;
+        }
+      }
+    }
+  
   MCPhysReg BestReg = 0;
   unsigned BestCost = spillImpossible;
   ArrayRef<MCPhysReg> AllocationOrder = RegClassInfo.getOrder(&RC);
