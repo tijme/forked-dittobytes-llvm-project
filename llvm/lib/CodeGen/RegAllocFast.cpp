@@ -45,6 +45,7 @@
 #include <tuple>
 #include <vector>
 #include <random>
+#include <string.h>
 
 using namespace llvm;
 
@@ -70,6 +71,31 @@ static RegisterRegAlloc fastRegAlloc("fast", "fast register allocator",
 
 
 namespace {
+
+/**
+ * Check if the given prefix is indeed a prefix in the given string (case sensitive).
+ * 
+ * @param char* string The string to check the prefix for.
+ * @param char* possiblePrefix The prefix to search for.
+ * @param bool caseSensitive If a case sensitive check should be performed.
+ * @return bool Positive if the string is prefixed with the possible prefix.
+ */
+bool stringStartsWith(const char* string, char* possiblePrefix) {
+    return strncmp(possiblePrefix, string, strlen(possiblePrefix)) == 0;
+}
+
+/**
+ * Convert the given Printable to a std:string.
+ * 
+ * @param const llvm::Printable& printable The printable to convert
+ * @return std:string The printable converted to a string.
+ */
+std::string printableToString(const llvm::Printable &printable) {
+    std::string result;
+    llvm::raw_string_ostream stream(result);  // Create a stream that writes to the result string
+    printable.Print(stream);  // Use the Printable's print method to write to the stream
+    return result;  // The string now contains the printed version of the Printable object
+}
 
 /// Assign ascending index for instructions in machine basic block. The index
 /// can be used to determine dominance between instructions in same MBB.
@@ -880,48 +906,51 @@ void RegAllocFast::allocVirtReg(MachineInstr &MI, LiveReg &LR, Register Hint0,
                     << " in class " << TRI->getRegClassName(&RC)
                     << " with hint " << printReg(Hint0, TRI) << '\n');
 
-  // Take hint when possible.
-  if (Hint0.isPhysical() && MRI->isAllocatable(Hint0) && RC.contains(Hint0) &&
-      !isRegUsedInInstr(Hint0, LookAtPhysRegUses)) {
-    // Take hint if the register is currently free.
-    if (isPhysRegFree(Hint0)) {
-      LLVM_DEBUG(dbgs() << "\tPreferred Register 1: " << printReg(Hint0, TRI)
-                        << '\n');
-      assignVirtToPhysReg(MI, LR, Hint0);
-      return;
-    } else {
-      LLVM_DEBUG(dbgs() << "\tPreferred Register 0: " << printReg(Hint0, TRI)
-                        << " occupied\n");
-    }
-  } else {
-    Hint0 = Register();
-  }
-
-  // Try other hint.
-  Register Hint1 = traceCopies(VirtReg);
-  if (Hint1.isPhysical() && MRI->isAllocatable(Hint1) && RC.contains(Hint1) &&
-      !isRegUsedInInstr(Hint1, LookAtPhysRegUses)) {
-    // Take hint if the register is currently free.
-    if (isPhysRegFree(Hint1)) {
-      LLVM_DEBUG(dbgs() << "\tPreferred Register 0: " << printReg(Hint1, TRI)
-                        << '\n');
-      assignVirtToPhysReg(MI, LR, Hint1);
-      return;
-    } else {
-      LLVM_DEBUG(dbgs() << "\tPreferred Register 1: " << printReg(Hint1, TRI)
-                        << " occupied\n");
-    }
-  } else {
-    Hint1 = Register();
-  }
+  MCPhysReg BestReg = 0;
+  unsigned BestCost = spillImpossible;
 
    if (FastRandomizeRegisterAllocation) {
       // Initialize vector of registers
       std::vector<MCPhysReg> AllRegisters;
       ArrayRef<MCPhysReg> Order = RegClassInfo.getOrder(&RC);
   
-      for (auto I = Order.begin(), E = Order.end(); I != E; ++I) {
-          AllRegisters.push_back(*I);
+      for (MCPhysReg I : Order) {
+        if (stringStartsWith(printableToString(printReg(I, TRI)).c_str(), "$pc")) continue;
+        if (stringStartsWith(printableToString(printReg(I, TRI)).c_str(), "$sp")) continue;
+        if (stringStartsWith(printableToString(printReg(I, TRI)).c_str(), "$lr")) continue;
+        if (stringStartsWith(printableToString(printReg(I, TRI)).c_str(), "$fp")) continue;
+      	if (stringStartsWith(printableToString(printReg(I, TRI)).c_str(), "$w30")) continue;
+      	if (stringStartsWith(printableToString(printReg(I, TRI)).c_str(), "$w29")) continue;
+      	if (stringStartsWith(printableToString(printReg(I, TRI)).c_str(), "$x30")) continue;
+      	if (stringStartsWith(printableToString(printReg(I, TRI)).c_str(), "$x29")) continue;
+
+        if (stringStartsWith(printableToString(printReg(I, TRI)).c_str(), "$x19")) continue;
+        if (stringStartsWith(printableToString(printReg(I, TRI)).c_str(), "$x20")) continue;
+        if (stringStartsWith(printableToString(printReg(I, TRI)).c_str(), "$x21")) continue;
+        if (stringStartsWith(printableToString(printReg(I, TRI)).c_str(), "$x22")) continue;
+        if (stringStartsWith(printableToString(printReg(I, TRI)).c_str(), "$x23")) continue;
+        if (stringStartsWith(printableToString(printReg(I, TRI)).c_str(), "$x24")) continue;
+        if (stringStartsWith(printableToString(printReg(I, TRI)).c_str(), "$x25")) continue;
+        if (stringStartsWith(printableToString(printReg(I, TRI)).c_str(), "$x26")) continue;
+        if (stringStartsWith(printableToString(printReg(I, TRI)).c_str(), "$x27")) continue;
+        if (stringStartsWith(printableToString(printReg(I, TRI)).c_str(), "$x28")) continue;
+        if (stringStartsWith(printableToString(printReg(I, TRI)).c_str(), "$x29")) continue;
+        if (stringStartsWith(printableToString(printReg(I, TRI)).c_str(), "$x30")) continue;
+
+        if (stringStartsWith(printableToString(printReg(I, TRI)).c_str(), "$w19")) continue;
+        if (stringStartsWith(printableToString(printReg(I, TRI)).c_str(), "$w20")) continue;
+        if (stringStartsWith(printableToString(printReg(I, TRI)).c_str(), "$w21")) continue;
+        if (stringStartsWith(printableToString(printReg(I, TRI)).c_str(), "$w22")) continue;
+        if (stringStartsWith(printableToString(printReg(I, TRI)).c_str(), "$w23")) continue;
+        if (stringStartsWith(printableToString(printReg(I, TRI)).c_str(), "$w24")) continue;
+        if (stringStartsWith(printableToString(printReg(I, TRI)).c_str(), "$w25")) continue;
+        if (stringStartsWith(printableToString(printReg(I, TRI)).c_str(), "$w26")) continue;
+        if (stringStartsWith(printableToString(printReg(I, TRI)).c_str(), "$w27")) continue;
+	      if (stringStartsWith(printableToString(printReg(I, TRI)).c_str(), "$w28")) continue;
+        if (stringStartsWith(printableToString(printReg(I, TRI)).c_str(), "$w29")) continue;
+        if (stringStartsWith(printableToString(printReg(I, TRI)).c_str(), "$w30")) continue;
+
+        AllRegisters.push_back(I);
       }
   
       // Initialize a random number engine
@@ -936,39 +965,89 @@ void RegAllocFast::allocVirtReg(MachineInstr &MI, LiveReg &LR, Register Hint0,
   
       for (auto I = RandomOrder.begin(), E = RandomOrder.end(); I != E; ++I) {
         assert(*I);
-  
-        if (MRI->isAllocatable(*I) && RC.contains(*I) && !isRegUsedInInstr(*I, LookAtPhysRegUses) && isPhysRegFree(*I)) {
+
+        if (isRegUsedInInstr(*I, LookAtPhysRegUses)) {
+          LLVM_DEBUG(dbgs() << "already used in instr.\n");
+          continue;
+        }
+
+        unsigned Cost = calcSpillCost(*I);
+        LLVM_DEBUG(dbgs() << "Cost: " << Cost << " BestCost: " << BestCost << '\n');
+        // Immediate take a register with cost 0.
+        if (Cost == 0) {
           assignVirtToPhysReg(MI, LR, *I);
           return;
         }
+
+        if (Cost < BestCost) {
+          BestReg = *I;
+          BestCost = Cost;
+        }
       }
-    }
-  
-  MCPhysReg BestReg = 0;
-  unsigned BestCost = spillImpossible;
-  ArrayRef<MCPhysReg> AllocationOrder = RegClassInfo.getOrder(&RC);
-  for (MCPhysReg PhysReg : AllocationOrder) {
-    LLVM_DEBUG(dbgs() << "\tRegister: " << printReg(PhysReg, TRI) << ' ');
-    if (isRegUsedInInstr(PhysReg, LookAtPhysRegUses)) {
-      LLVM_DEBUG(dbgs() << "already used in instr.\n");
-      continue;
-    }
+   }
 
-    unsigned Cost = calcSpillCost(PhysReg);
-    LLVM_DEBUG(dbgs() << "Cost: " << Cost << " BestCost: " << BestCost << '\n');
-    // Immediate take a register with cost 0.
-    if (Cost == 0) {
-      assignVirtToPhysReg(MI, LR, PhysReg);
-      return;
-    }
+   if (!BestReg) {
 
-    if (PhysReg == Hint0 || PhysReg == Hint1)
-      Cost -= spillPrefBonus;
+      // Take hint when possible.
+      if (Hint0.isPhysical() && MRI->isAllocatable(Hint0) && RC.contains(Hint0) &&
+          !isRegUsedInInstr(Hint0, LookAtPhysRegUses)) {
+        // Take hint if the register is currently free.
+        if (isPhysRegFree(Hint0)) {
+          LLVM_DEBUG(dbgs() << "\tPreferred Register 1: " << printReg(Hint0, TRI)
+                            << '\n');
+          assignVirtToPhysReg(MI, LR, Hint0);
+          return;
+        } else {
+          LLVM_DEBUG(dbgs() << "\tPreferred Register 0: " << printReg(Hint0, TRI)
+                            << " occupied\n");
+        }
+      } else {
+        Hint0 = Register();
+      }
 
-    if (Cost < BestCost) {
-      BestReg = PhysReg;
-      BestCost = Cost;
-    }
+      // Try other hint.
+      Register Hint1 = traceCopies(VirtReg);
+      if (Hint1.isPhysical() && MRI->isAllocatable(Hint1) && RC.contains(Hint1) &&
+          !isRegUsedInInstr(Hint1, LookAtPhysRegUses)) {
+        // Take hint if the register is currently free.
+        if (isPhysRegFree(Hint1)) {
+          LLVM_DEBUG(dbgs() << "\tPreferred Register 0: " << printReg(Hint1, TRI)
+                            << '\n');
+          assignVirtToPhysReg(MI, LR, Hint1);
+          return;
+        } else {
+          LLVM_DEBUG(dbgs() << "\tPreferred Register 1: " << printReg(Hint1, TRI)
+                            << " occupied\n");
+        }
+      } else {
+        Hint1 = Register();
+      }
+
+      ArrayRef<MCPhysReg> AllocationOrder = RegClassInfo.getOrder(&RC);
+      for (MCPhysReg PhysReg : AllocationOrder) {
+        LLVM_DEBUG(dbgs() << "\tRegister: " << printReg(PhysReg, TRI) << ' ');
+        if (isRegUsedInInstr(PhysReg, LookAtPhysRegUses)) {
+          LLVM_DEBUG(dbgs() << "already used in instr.\n");
+          continue;
+        }
+
+        unsigned Cost = calcSpillCost(PhysReg);
+        LLVM_DEBUG(dbgs() << "Cost: " << Cost << " BestCost: " << BestCost << '\n');
+        // Immediate take a register with cost 0.
+        if (Cost == 0) {
+          assignVirtToPhysReg(MI, LR, PhysReg);
+          return;
+        }
+
+        if (PhysReg == Hint0 || PhysReg == Hint1)
+          Cost -= spillPrefBonus;
+
+        if (Cost < BestCost) {
+          BestReg = PhysReg;
+          BestCost = Cost;
+        }
+      }
+
   }
 
   if (!BestReg) {
