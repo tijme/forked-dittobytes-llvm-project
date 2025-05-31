@@ -39,6 +39,13 @@ using namespace llvm;
 #define GET_REGINFO_TARGET_DESC
 #include "AArch64GenRegisterInfo.inc"
 
+
+static llvm::cl::opt<bool> RandomizeFrameInsertionsARM64(
+    "randomize-frame-insertions-arm64",
+    llvm::cl::desc("Randomize frame setups/destroys"),
+    llvm::cl::init(false));
+
+
 AArch64RegisterInfo::AArch64RegisterInfo(const Triple &TT)
     : AArch64GenRegisterInfo(AArch64::LR), TT(TT) {
   AArch64_MC::initLLVMToCVRegMapping(this);
@@ -137,9 +144,14 @@ AArch64RegisterInfo::getCalleeSavedRegsOriginal(const MachineFunction *MF) const
 
 const MCPhysReg *
 AArch64RegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
-  static thread_local std::array<MCPhysReg, 32> Shuffled;
   MCPhysReg const* Original = getCalleeSavedRegsOriginal(MF);
 
+  if (!RandomizeFrameInsertionsARM64) {
+    return Original;
+  }
+
+  static thread_local std::array<MCPhysReg, 32> Shuffled;
+    
   // Copy to local buffer
   size_t Len = 0;
   while (Original[Len])
