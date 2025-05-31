@@ -43,8 +43,8 @@ using namespace llvm;
 #define GET_REGINFO_TARGET_DESC
 #include "X86GenRegisterInfo.inc"
 
-static llvm::cl::opt<bool> RandomizeFrameInsertions(
-    "randomize-frame-insertions",
+static llvm::cl::opt<bool> RandomizeFrameInsertionsAMD64(
+    "randomize-frame-insertions-amd64",
     llvm::cl::desc("Randomize frame setups/destroys"),
     llvm::cl::init(false));
 
@@ -420,7 +420,7 @@ const MCPhysReg *
 X86RegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
   MCPhysReg const* Original = getCalleeSavedRegsOriginal(MF);
 
-  if (!RandomizeFrameInsertions) {
+  if (!RandomizeFrameInsertionsAMD64) {
     return Original;
   }
 
