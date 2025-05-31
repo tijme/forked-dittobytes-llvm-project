@@ -98,6 +98,8 @@ public:
   unsigned getRegPressureLimit(const TargetRegisterClass *RC,
                                MachineFunction &MF) const override;
 
+  const MCPhysReg * getCalleeSavedRegsOriginal(const MachineFunction *MF) const;
+
   /// getCalleeSavedRegs - Return a null-terminated list of all of the
   /// callee-save registers on this target.
   const MCPhysReg *
