@@ -31,7 +31,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetOptions.h"
 #include "llvm/TargetParser/Triple.h"
-
+#include <random>
 using namespace llvm;
 
 #define GET_CC_REGISTER_LISTS
@@ -68,7 +68,7 @@ bool AArch64RegisterInfo::regNeedsCFI(unsigned Reg,
 }
 
 const MCPhysReg *
-AArch64RegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
+AArch64RegisterInfo::getCalleeSavedRegsOriginal(const MachineFunction *MF) const {
   assert(MF && "Invalid MachineFunction pointer.");
 
   if (MF->getFunction().getCallingConv() == CallingConv::GHC)
@@ -133,6 +133,40 @@ AArch64RegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
     return CSR_AArch64_SVE_AAPCS_SaveList;
   return CSR_AArch64_AAPCS_SaveList;
 }
+
+
+const MCPhysReg *
+AArch64RegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
+  static thread_local std::array<MCPhysReg, 32> Shuffled;
+  MCPhysReg const* Original = getCalleeSavedRegsOriginal(MF);
+
+  // Copy to local buffer
+  size_t Len = 0;
+  while (Original[Len])
+    ++Len;
+
+  assert(Len <= Shuffled.size() - 1 && "Too many callee-saved registers");
+  std::copy(Original, Original + Len, Shuffled.begin());
+  Shuffled[Len] = 0; // Null-terminate
+
+  // Static per-runtime seed, initialized once per program run
+  static const uint64_t RuntimeSeed = [](){
+    auto now = std::chrono::high_resolution_clock::now();
+    return static_cast<uint64_t>(now.time_since_epoch().count());
+  }();
+
+  // Combine runtime seed and MF name hash for deterministic shuffle per MF per run
+  std::hash<std::string> hasher;
+  uint64_t MFSeed = hasher(MF->getName().str());
+
+  uint64_t CombinedSeed = RuntimeSeed ^ (MFSeed + 0x9e3779b97f4a7c15 + (RuntimeSeed << 6) + (RuntimeSeed >> 2));
+
+  std::mt19937_64 RNG(CombinedSeed);
+  std::shuffle(Shuffled.begin(), Shuffled.begin() + Len, RNG);
+
+  return Shuffled.data();
+}
+
 
 const MCPhysReg *
 AArch64RegisterInfo::getDarwinCalleeSavedRegs(const MachineFunction *MF) const {
