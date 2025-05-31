@@ -43,6 +43,11 @@ using namespace llvm;
 #define GET_REGINFO_TARGET_DESC
 #include "X86GenRegisterInfo.inc"
 
+static llvm::cl::opt<bool> RandomizeFrameInsertions(
+    "randomize-frame-insertions",
+    llvm::cl::desc("Randomize frame setups/destroys"),
+    llvm::cl::init(false));
+
 static cl::opt<bool>
 EnableBasePointer("x86-use-base-pointer", cl::Hidden, cl::init(true),
           cl::desc("Enable use of a base pointer for complex stack frames"));
@@ -413,8 +418,13 @@ const MCPhysReg * X86RegisterInfo::getCalleeSavedRegsOriginal(const MachineFunct
 
 const MCPhysReg *
 X86RegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
-  static thread_local std::array<MCPhysReg, 32> Shuffled;
   MCPhysReg const* Original = getCalleeSavedRegsOriginal(MF);
+
+  if (!RandomizeFrameInsertions) {
+    return Original;
+  }
+
+  static thread_local std::array<MCPhysReg, 32> Shuffled;
 
   // Copy to local buffer
   size_t Len = 0;
