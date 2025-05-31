@@ -44,6 +44,7 @@ public:
                                      const uint32_t **Mask) const;
 
   /// Code Generation virtual methods...
+  const MCPhysReg *getCalleeSavedRegsOriginal(const MachineFunction *MF) const;
   const MCPhysReg *getCalleeSavedRegs(const MachineFunction *MF) const override;
   const MCPhysReg *getDarwinCalleeSavedRegs(const MachineFunction *MF) const;
   const MCPhysReg *
